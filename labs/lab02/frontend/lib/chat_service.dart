@@ -27,7 +27,6 @@ class ChatService {
     if (failSend) {
       throw Exception('Failed to send message.');
     }
-    // Simulate server echoing the message back
     _controller.add(msg);
   }
 

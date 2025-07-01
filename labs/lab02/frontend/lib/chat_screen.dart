@@ -23,14 +23,12 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _textController = TextEditingController();
 
-    // Start connecting to the chat service
     _connectionFuture = widget.chatService.connect().catchError((e) {
       setState(() {
         _error = e.toString();
       });
     });
 
-    // Subscribe to incoming messages
     _subscription = widget.chatService.messageStream.listen(
       (message) {
         setState(() {

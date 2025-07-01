@@ -10,7 +10,9 @@ class ChatService {
       StreamController<String>.broadcast();
   bool failSend = false;
 
+
   bool failConnect = false;
+
 
   ChatService();
 
@@ -36,5 +38,6 @@ class ChatService {
 
   void dispose() {
     _controller.close();
+
   }
 }

@@ -12,5 +12,6 @@ class UserService {
     if (updatedData['name']?.isEmpty ?? true) {
       throw UnimplementedError();
     }
+
   }
 }

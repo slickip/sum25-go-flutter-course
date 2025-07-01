@@ -3,6 +3,7 @@ import 'package:lab02_chat/user_service.dart';
 
 class UserProfile extends StatefulWidget {
   final UserService userService;
+
   const UserProfile({Key? key, required this.userService}) : super(key: key);
 
   @override
@@ -10,12 +11,15 @@ class UserProfile extends StatefulWidget {
 }
 
 class _UserProfileState extends State<UserProfile> {
+
   late Future<Map<String, String>> _userFuture;
   String? _error;
+
 
   @override
   void initState() {
     super.initState();
+
     _fetchUser();
   }
 
@@ -51,6 +55,7 @@ class _UserProfileState extends State<UserProfile> {
 
   @override
   Widget build(BuildContext context) {
+    // TODO: Build user profile UI with loading, error, and user info
     return Scaffold(
       appBar: AppBar(title: const Text('User Profile')),
       body: _error != null

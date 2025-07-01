@@ -12,15 +12,18 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+
   late TextEditingController _textController;
   late Future<void> _connectionFuture;
   late StreamSubscription<String> _subscription;
   final List<String> _messages = [];
   String? _error;
 
+
   @override
   void initState() {
     super.initState();
+
     _textController = TextEditingController();
 
     _connectionFuture = widget.chatService.connect().catchError((e) {
@@ -45,8 +48,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+
     _textController.dispose();
     _subscription.cancel();
+
     super.dispose();
   }
 
@@ -70,6 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // TODO: Build chat UI with loading, error, and message list
     return Scaffold(
       appBar: AppBar(title: const Text('Chat')),
       body: FutureBuilder<void>(

@@ -3,26 +3,20 @@ import 'package:http/http.dart' as http;
 import '../models/message.dart';
 
 class ApiService {
-  // ✅ Add static const String baseUrl = 'http://localhost:8080';
   static const String baseUrl = 'http://localhost:8080';
 
-  // ✅ Add static const Duration timeout = Duration(seconds: 30);
   static const Duration timeout = Duration(seconds: 30);
 
-  // ✅ Add late http.Client _client field
   late http.Client _client;
 
-  // ✅ Add constructor that initializes _client = http.Client();
   ApiService() {
     _client = http.Client();
   }
 
-  // ✅ Add dispose() method that calls _client.close();
   void dispose() {
     _client.close();
   }
 
-  // ✅ Add _getHeaders() method that returns Map<String, String>
   Map<String, String> _getHeaders() {
     return {
       'Content-Type': 'application/json',
@@ -30,7 +24,6 @@ class ApiService {
     };
   }
 
-  // ✅ Add _handleResponse<T>() method
   T _handleResponse<T>(
     http.Response response,
     T Function(Map<String, dynamic>) fromJson,
@@ -56,7 +49,6 @@ class ApiService {
     throw UnimplementedError('help');
   }
 
-  // ✅ Create a new message
   Future<Message> createMessage(CreateMessageRequest request) async {
     final validationError = request.validate();
     if (validationError != null) {
@@ -81,7 +73,6 @@ class ApiService {
     }
   }
 
-  // ✅ Update an existing message
   Future<Message> updateMessage(int id, UpdateMessageRequest request) async {
     final validationError = request.validate();
     if (validationError != null) {
@@ -106,7 +97,6 @@ class ApiService {
     }
   }
 
-  // ✅ Delete a message
   Future<void> deleteMessage(int id) async {
     try {
       final response = await _client
@@ -125,7 +115,6 @@ class ApiService {
     }
   }
 
-  // ✅ Get HTTP status information
   Future<HTTPStatusResponse> getHTTPStatus(int statusCode) async {
     if (statusCode < 100 || statusCode > 599) {
       throw UnimplementedError('help');
@@ -152,7 +141,6 @@ class ApiService {
     }
   }
 
-  // ✅ Health check
   Future<Map<String, dynamic>> healthCheck() async {
     try {
       final response = await _client
@@ -169,7 +157,6 @@ class ApiService {
   }
 }
 
-// ✅ Custom exceptions
 class ApiException implements Exception {
   final String message;
   ApiException(this.message);

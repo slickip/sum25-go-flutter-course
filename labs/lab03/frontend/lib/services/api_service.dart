@@ -50,27 +50,7 @@ class ApiService {
   }
 
   Future<Message> createMessage(CreateMessageRequest request) async {
-    final validationError = request.validate();
-    if (validationError != null) {
-      throw ValidationException(validationError);
-    }
-
-    try {
-      final response = await _client
-          .post(
-            Uri.parse('$baseUrl/api/messages'),
-            headers: _getHeaders(),
-            body: json.encode(request.toJson()),
-          )
-          .timeout(timeout);
-
-      return _handleResponse<Message>(
-        response,
-        (json) => Message.fromJson(json),
-      );
-    } catch (e) {
-      throw NetworkException('Failed to create message: $e');
-    }
+    throw UnimplementedError('...');
   }
 
   Future<Message> updateMessage(int id, UpdateMessageRequest request) async {

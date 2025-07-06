@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/message.dart';
 import '../services/api_service.dart';
-import 'dart:math';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -11,7 +11,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final ApiService _apiService = ApiService();
+  ApiService? _apiService;
   List<Message> _messages = [];
   bool _isLoading = false;
   String? _error;
@@ -19,14 +19,21 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    _loadMessages();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_apiService == null) {
+      try {
+        _apiService = Provider.of<ApiService>(context, listen: false);
+      } catch (e) {
+        // Fallback to creating our own ApiService if Provider is not available
+        _apiService = ApiService();
+      }
+      _loadMessages();
+    }
   }
 
   @override
   void dispose() {
-    _apiService.dispose();
     _usernameController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -38,7 +45,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _error = null;
     });
     try {
-      final messages = await _apiService.getMessages();
+      final messages = await _apiService!.getMessages();
       setState(() {
         _messages = messages;
       });
@@ -56,41 +63,56 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendMessage() async {
     final username = _usernameController.text.trim();
     final content = _messageController.text.trim();
-
     if (username.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username and message cannot be empty')),
-      );
+      setState(() {
+        _error = 'Username and message cannot be empty.';
+      });
       return;
     }
-
-    final request = CreateMessageRequest(username: username, content: content);
-
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      final newMessage = await _apiService.createMessage(request);
+      final request =
+          CreateMessageRequest(username: username, content: content);
+      final newMessage = await _apiService!.createMessage(request);
       setState(() {
         _messages.insert(0, newMessage);
         _messageController.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message sent')),
-      );
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Message sent successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _editMessage(Message message) async {
-    final controller = TextEditingController(text: message.content);
+    final TextEditingController editController =
+        TextEditingController(text: message.content);
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Message'),
         content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Enter new content'),
+          controller: editController,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Message'),
         ),
         actions: [
           TextButton(
@@ -98,33 +120,41 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, editController.text.trim()),
             child: const Text('Save'),
           ),
         ],
       ),
     );
-
-    if (result != null && result.isNotEmpty) {
-      final request = UpdateMessageRequest(content: result);
+    if (result != null && result.isNotEmpty && result != message.content) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
       try {
-        final updated = await _apiService.updateMessage(message.id, request);
+        final request = UpdateMessageRequest(content: result);
+        final updatedMessage =
+            await _apiService!.updateMessage(message.id, request);
         setState(() {
           final index = _messages.indexWhere((m) => m.id == message.id);
           if (index != -1) {
-            _messages[index] = updated;
+            _messages[index] = updatedMessage;
           }
         });
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        setState(() {
+          _error = e.toString();
+        });
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
   Future<void> _deleteMessage(Message message) async {
-    final confirm = await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Message'),
@@ -136,66 +166,86 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-
-    if (confirm == true) {
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
       try {
-        await _apiService.deleteMessage(message.id);
+        await _apiService!.deleteMessage(message.id);
         setState(() {
           _messages.removeWhere((m) => m.id == message.id);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Message deleted')),
-        );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        setState(() {
+          _error = e.toString();
+        });
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
   Future<void> _showHTTPStatus(int statusCode) async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      final status = await _apiService.getHTTPStatus(statusCode);
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('HTTP Status: ${status.statusCode}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(status.description),
-              const SizedBox(height: 12),
-              Image.network(
-                status.imageUrl,
-                height: 150,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return const CircularProgressIndicator();
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.error_outline, color: Colors.red);
-                },
+      final statusInfo = await _apiService!.getHTTPStatus(statusCode);
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('HTTP Status: $statusCode'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(statusInfo.description),
+                const SizedBox(height: 16),
+                Image.network(
+                  statusInfo.imageUrl,
+                  height: 150,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.error, color: Colors.red, size: 48),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
+      }
     }
   }
 
@@ -206,7 +256,19 @@ class _ChatScreenState extends State<ChatScreen> {
             ? message.username[0].toUpperCase()
             : '?'),
       ),
-      title: Text('${message.username} • ${message.timestamp.toLocal()}'),
+      title: Row(
+        children: [
+          Text(
+            message.username,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            message.timestamp.toLocal().toString().substring(0, 16),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
       subtitle: Text(message.content),
       trailing: PopupMenuButton<String>(
         onSelected: (value) {
@@ -229,16 +291,16 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       onTap: () {
         final codes = [200, 404, 500];
-        final randomCode = codes[Random().nextInt(codes.length)];
-        _showHTTPStatus(randomCode);
+        final code = codes[message.id.hashCode % codes.length];
+        _showHTTPStatus(code);
       },
     );
   }
 
   Widget _buildMessageInput() {
     return Container(
-      padding: const EdgeInsets.all(8),
       color: Colors.grey[200],
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -246,33 +308,53 @@ class _ChatScreenState extends State<ChatScreen> {
             controller: _usernameController,
             decoration: const InputDecoration(
               labelText: 'Enter your username',
-            ),
-          ),
-          TextField(
-            controller: _messageController,
-            decoration: const InputDecoration(
-              labelText: 'Enter your message',
+              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              ElevatedButton(
-                onPressed: _sendMessage,
-                child: const Text('Send'),
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: const InputDecoration(
+                    labelText: 'Enter your message',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
               ),
               const SizedBox(width: 8),
-              TextButton(
-                onPressed: () => _showHTTPStatus(200),
-                child: const Text('200 OK'),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _sendMessage,
+                child: const Text('Send'),
               ),
-              TextButton(
-                onPressed: () => _showHTTPStatus(404),
-                child: const Text('404 Not Found'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: OutlinedButton(
+                  onPressed: () => _showHTTPStatus(200),
+                  child: const Text('200 OK'),
+                ),
               ),
-              TextButton(
-                onPressed: () => _showHTTPStatus(500),
-                child: const Text('500 Error'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: OutlinedButton(
+                  onPressed: () => _showHTTPStatus(404),
+                  child: const Text('404 Not Found'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: OutlinedButton(
+                  onPressed: () => _showHTTPStatus(500),
+                  child: const Text('500 Error'),
+                ),
               ),
             ],
           ),
@@ -284,14 +366,21 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildErrorWidget() {
     return Center(
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 48),
-          const SizedBox(height: 8),
-          Text(_error ?? 'Unknown error'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          Text(
+            _error ?? 'An error occurred.',
+            style: const TextStyle(color: Colors.red, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _loadMessages,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
             child: const Text('Retry'),
           ),
         ],
@@ -313,7 +402,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadMessages,
+            onPressed: _isLoading ? null : _loadMessages,
           ),
         ],
       ),
@@ -324,9 +413,10 @@ class _ChatScreenState extends State<ChatScreen> {
               : _messages.isEmpty
                   ? const Center(
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text('No messages yet'),
+                          SizedBox(height: 8),
                           Text('Send your first message to get started!'),
                         ],
                       ),
@@ -339,8 +429,59 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
       bottomSheet: _buildMessageInput(),
       floatingActionButton: FloatingActionButton(
-        onPressed: _loadMessages,
+        onPressed: _isLoading ? null : _loadMessages,
         child: const Icon(Icons.refresh),
+      ),
+    );
+  }
+}
+
+// Helper class for HTTP status demonstrations
+class HTTPStatusDemo {
+  static Future<void> showRandomStatus(
+      BuildContext context, ApiService apiService) async {
+    final codes = [200, 201, 400, 404, 500];
+    codes.shuffle();
+    final code = codes.first;
+    final _ChatScreenState? state =
+        context.findAncestorStateOfType<_ChatScreenState>();
+    if (state != null) {
+      await state._showHTTPStatus(code);
+    }
+  }
+
+  static Future<void> showStatusPicker(
+      BuildContext context, ApiService apiService) async {
+    final codes = [100, 200, 201, 400, 401, 403, 404, 418, 500, 503];
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pick HTTP Status'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: codes
+              .map(
+                (code) => OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    final _ChatScreenState? state =
+                        context.findAncestorStateOfType<_ChatScreenState>();
+                    if (state != null) {
+                      state._showHTTPStatus(code);
+                    }
+                  },
+                  child: Text('$code'),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }

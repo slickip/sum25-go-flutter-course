@@ -1,78 +1,94 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'message.g.dart';
-
-@JsonSerializable()
 class Message {
   final int id;
   final String username;
   final String content;
   final DateTime timestamp;
 
-  Message({
-    required this.id,
-    required this.username,
-    required this.content,
-    required this.timestamp,
-  });
+  Message(
+      {required this.id,
+      required this.username,
+      required this.content,
+      required this.timestamp});
 
-  factory Message.fromJson(Map<String, dynamic> json) =>
-      _$MessageFromJson(json);
-  Map<String, dynamic> toJson() => _$MessageToJson(this);
+  factory Message.fromJson(Map<String, dynamic> json) {
+    return Message(
+      id: json['id'] as int,
+      username: json['username'] as String,
+      content: json['content'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
+      'content': content,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
 }
 
-@JsonSerializable()
 class CreateMessageRequest {
   final String username;
   final String content;
 
-  CreateMessageRequest({
-    required this.username,
-    required this.content,
-  });
+  CreateMessageRequest({required this.username, required this.content});
 
-  Map<String, dynamic> toJson() => _$CreateMessageRequestToJson(this);
+  Map<String, dynamic> toJson() {
+    return {
+      'username': username,
+      'content': content,
+    };
+  }
 
   String? validate() {
-    if (username.isEmpty) return 'Username is required';
-    if (content.isEmpty) return 'Content is mandatory';
+    if (username.isEmpty) {
+      return "Username is required";
+    }
+    if (content.isEmpty) {
+      return "Content is required";
+    }
     return null;
   }
 }
 
-@JsonSerializable()
 class UpdateMessageRequest {
   final String content;
 
   UpdateMessageRequest({required this.content});
 
-  Map<String, dynamic> toJson() => _$UpdateMessageRequestToJson(this);
+  Map<String, dynamic> toJson() {
+    return {'content': content};
+  }
 
   String? validate() {
-    if (content.isEmpty) return 'Content is mandatory';
+    if (content.isEmpty) {
+      return "Content is required";
+    }
     return null;
   }
 }
 
-@JsonSerializable()
 class HTTPStatusResponse {
-  @JsonKey(name: 'status_code')
   final int statusCode;
-  @JsonKey(name: 'image_url')
   final String imageUrl;
   final String description;
 
-  HTTPStatusResponse({
-    required this.statusCode,
-    required this.imageUrl,
-    required this.description,
-  });
+  HTTPStatusResponse(
+      {required this.statusCode,
+      required this.imageUrl,
+      required this.description});
 
-  factory HTTPStatusResponse.fromJson(Map<String, dynamic> json) =>
-      _$HTTPStatusResponseFromJson(json);
+  factory HTTPStatusResponse.fromJson(Map<String, dynamic> json) {
+    return HTTPStatusResponse(
+      statusCode: json['status_code'] as int,
+      imageUrl: json['image_url'] as String,
+      description: json['description'] as String,
+    );
+  }
 }
 
-@JsonSerializable(genericArgumentFactories: true)
 class ApiResponse<T> {
   final bool success;
   final T? data;
@@ -82,11 +98,13 @@ class ApiResponse<T> {
 
   factory ApiResponse.fromJson(
     Map<String, dynamic> json,
-    T Function(Object? json) fromJsonT,
+    T Function(Map<String, dynamic>)? fromJsonT,
   ) {
     return ApiResponse<T>(
       success: json['success'] as bool,
-      data: json['data'] != null ? fromJsonT(json['data']) : null,
+      data: json['data'] != null && fromJsonT != null
+          ? fromJsonT(json['data'] as Map<String, dynamic>)
+          : null,
       error: json['error'] as String?,
     );
   }

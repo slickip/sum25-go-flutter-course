@@ -11,7 +11,7 @@ class DatabaseService {
   static Future<Database> get database async {
     // TODO: Return existing database or initialize new one
     // Use the null-aware operator to check if _database exists
-    if (database != null) return database!;
+    if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
